@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lapanbelas.id Admin Panel</title>
+    
+    <!-- Load Tailwind CSS & FontAwesome -->
+    <link href="/src/input.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Load Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Load Plus Jakarta Sans (Premium) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Load Leaflet.js (Peta Geofence) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        /* CSS Theme Variables */
+        :root {
+            --bg-body: linear-gradient(135deg, #090d1a 0%, #111827 50%, #1e1b4b 100%);
+            --bg-app: rgba(17, 24, 39, 0.85);
+            --bg-header: rgba(17, 24, 39, 0.7);
+            --border-card: rgba(255, 255, 255, 0.06);
+            --border-app: rgba(255, 255, 255, 0.08);
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #4b5563;
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .light-theme {
+            --bg-body: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
+            --bg-app: rgba(241, 245, 249, 0.95);
+            --bg-header: rgba(255, 255, 255, 0.9);
+            --border-card: rgba(15, 23, 42, 0.08);
+            --border-app: rgba(15, 23, 42, 0.1);
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --card-shadow: 0 10px 30px 0 rgba(15, 23, 42, 0.05);
+        }
+
+        body {
+            background: var(--bg-body);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-y: auto;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.4s ease;
+        }
+
+        /* Container Responsif: Full screen pada mobile, Card layout pada Desktop */
+        #admin-container {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-app);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: none;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            transition: all 0.4s ease;
+        }
+
+        @media (min-width: 1024px) {
+            #admin-container {
+                max-width: 1120px;
+                height: auto;
+                min-height: 90vh;
+                border: 1px solid var(--border-app);
+                border-radius: 28px;
+                margin: 24px;
+                box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+        }
+
+        /* Leaflet mini-map */
+        #admin-map {
+            width: 100%;
+            height: 180px;
+            border-radius: 16px;
+            z-index: 1;
+            filter: grayscale(0.2) contrast(1.1) brightness(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="admin-container">
+        
+        <!-- Header Panel Admin (Sangat Responsif) -->
+        <header class="border-b border-white/5 py-4 px-5 sm:py-5 sm:px-8 flex flex-col gap-3 sm:flex-row justify-between items-center shrink-0 z-10" style="background: var(--bg-header);">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-lg font-black shrink-0 shadow-lg shadow-sky-500/20">
+                    18
+                </div>
+                <div class="min-w-0">
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white flex flex-wrap items-center gap-1.5" style="color: var(--text-primary);">
+                        Lapanbelas.id Admin Panel
+                        <span class="text-[8px] bg-sky-500/10 border border-sky-500/20 text-sky-400 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Hrd Dashboard</span>
+                    </h1>
+                    <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Sistem Kontrol Absensi, Geofence, & Slip Gaji Massal</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t border-white/5 sm:border-0 pt-3 sm:pt-0">
+                <!-- Theme Toggle Button -->
+                <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl glass-card flex items-center justify-center text-xs active:scale-95 transition-all text-slate-300" id="btn-theme-toggle" title="Ubah Tema">
+                    <i class="fas fa-sun text-yellow-400" id="theme-toggle-icon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Area Dashboard Utama -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto no-scrollbar">
+            
+            <!-- ROW 1: KARTU STATISTIK (Responsif Grid) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider" style="color: var(--text-secondary);">Total Karyawan</p>
+                    <h3 class="text-xl sm:text-2xl font-black mt-1" style="color: var(--text-primary);">5 <span class="text-xs font-semibold text-slate-400">Orang</span></h3>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-emerald-500">Hadir Hari Ini</p>
+                    <h3 class="text-xl sm:text-2xl font-black mt-1 text-emerald-400" id="stat-admin-hadir">4</h3>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-amber-500">Telat Hari Ini</p>
+                    <h3 class="text-xl sm:text-2xl font-black mt-1 text-amber-400" id="stat-admin-telat">1</h3>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-rose-500">Total Denda</p>
+                    <h3 class="text-xl sm:text-2xl font-black mt-1 text-rose-400" id="stat-admin-denda">Rp 155k</h3>
+                </div>
+                <div class="glass-card rounded-2xl p-4 col-span-2 sm:col-span-3 lg:col-span-1 border border-sky-500/20 bg-sky-500/5">
+                    <p class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider text-sky-400">Pending Izin</p>
+                    <h3 class="text-xl sm:text-2xl font-black mt-1 text-sky-300 animate-pulse" id="stat-admin-pending-izin">0</h3>
+                </div>
+            </div>
+
+            <!-- ROW 2: GEOFENCE MANAGER & EMAIL SETTINGS -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- GEOFENCE SETTINGS (Leaflet + Inputs) -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2 flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-map-marked-alt text-sky-400"></i>
+                            Manajer Geofencing Kantor Lapanbelas.id
+                        </h3>
+                        <span class="text-[8px] sm:text-[9px] font-extrabold bg-sky-500/10 border border-sky-500/20 text-sky-400 px-2 py-0.5 rounded">Sinkronisasi Instan</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                        <!-- Mini Map Admin -->
+                        <div id="admin-map-parent" class="h-44 sm:h-full min-h-[160px] rounded-xl overflow-hidden border border-white/5 relative">
+                            <div id="admin-map"></div>
+                        </div>
+                        
+                        <!-- Inputs -->
+                        <div class="flex flex-col justify-between gap-3.5 text-xs">
+                            <div class="space-y-2.5">
+                                <div class="grid grid-cols-2 gap-2 sm:grid-cols-1">
+                                    <div>
+                                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Latitude Kantor</label>
+                                        <input type="number" step="0.0000001" id="geofence-lat" value="4.47604" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-mono text-[11px]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Longitude Kantor</label>
+                                        <input type="number" step="0.0000001" id="geofence-lon" value="97.95755" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-mono text-[11px]">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Radius Absensi (Meter)</label>
+                                    <input type="number" id="geofence-radius" value="800" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-mono text-[11px]">
+                                </div>
+                            </div>
+                            
+                            <button onclick="updateGeofenceAdmin()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold py-2.5 rounded-xl text-[9px] sm:text-[10px] uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-emerald-500/15">
+                                <i class="fas fa-save mr-1.5"></i> Perbarui Geofence
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EMAIL AUTO-SCHEDULER & BULK SENDER -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5 mb-3" style="color: var(--text-primary);">
+                            <i class="fas fa-envelope-open-text text-amber-500"></i>
+                            Pengiriman Slip Gaji Massal
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px] mb-3.5" style="color: var(--text-secondary);">Konfigurasi pengiriman berkas slip gaji PDF massal secara otomatis ke seluruh email karyawan Lapanbelas.id.</p>
+                        
+                        <div class="space-y-2.5 text-xs bg-slate-800/20 border border-white/5 p-3 rounded-xl">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400 text-[11px]" style="color: var(--text-secondary);">Status Auto-Scheduler</span>
+                                <span class="text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black uppercase">AKTIF</span>
+                            </div>
+                            <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                                <span class="text-slate-400 text-[11px]" style="color: var(--text-secondary);">Tanggal Pengiriman</span>
+                                <span class="font-bold text-white text-[11px]" style="color: var(--text-primary);">Tgl 1 / 00:00</span>
+                            </div>
+                            <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                                <span class="text-slate-400 text-[11px]" style="color: var(--text-secondary);">Format Lampiran</span>
+                                <span class="font-bold text-rose-400 font-mono text-[11px]">PDF Dokumen</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="simulasikanKirimEmailMassal()" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold py-3 rounded-xl text-[9px] sm:text-[10px] uppercase tracking-wider active:scale-95 transition-all shadow-lg shadow-sky-500/15">
+                        <i class="fas fa-paper-plane mr-1.5"></i> Kirim Semua Slip Gaji Sekarang
+                    </button>
+                </div>
+            </div>
+
+            <!-- ROW 3: PENGAJUAN IZIN & MANAJEMEN KARYAWAN -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- LIST PERSETUJUAN IZIN -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-1 flex flex-col gap-4">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-calendar-check text-sky-400"></i>
+                            Persetujuan Cuti / Izin Karyawan
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Batasan maksimal izin bulanan: 3x per orang</p>
+                    </div>
+                    
+                    <div id="admin-izin-list" class="space-y-3.5 max-h-[300px] overflow-y-auto no-scrollbar flex-1">
+                        <!-- Dynamic Pending Izin List -->
+                    </div>
+                </div>
+
+                <!-- DAFTAR MONITORING GAJI & ABSENSI KARYAWAN -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-users text-sky-400"></i>
+                            Monitoring Kinerja & Slip Gaji Bulanan
+                        </h3>
+                        <span class="text-[8px] sm:text-[9px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">Rincian Slip Gaji Aktif</span>
+                    </div>
+                    
+                    <!-- Sizing responsif untuk menghindari layout tabel bertumpuk -->
+                    <div class="overflow-x-auto w-full flex-1 no-scrollbar">
+                        <table class="w-full text-xs text-left min-w-[700px]">
+                            <thead>
+                                <tr class="border-b border-white/15" style="color: var(--text-secondary);">
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] w-44">Karyawan (ID)</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-center w-16">Hadir</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-center w-16">Sisa Cuti</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-center w-24">Rating Kehadiran</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-right w-24">Denda</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-right w-28">Tambahan Lembur</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-right w-28">Gaji Bersih (THP)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-karyawan-tbody" class="divide-y divide-white/5">
+                                <!-- Dynamic Employee Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ROW 3.5: KELOLA HARI LIBUR BERSAMA -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- FORM INPUT LIBUR -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-calendar-plus text-indigo-400"></i>
+                            Tambah Hari Libur Bersama
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Setting libur nasional / khusus agar staff tidak perlu absen</p>
+                    </div>
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Tanggal Libur</label>
+                            <input type="date" id="holiday-date" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500 font-sans text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Keterangan Acara</label>
+                            <input type="text" id="holiday-desc" placeholder="Contoh: Hari Raya Idul Fitri 1447H" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500 font-sans text-[11px]">
+                        </div>
+                        <button onclick="tambahHariLibur()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-extrabold py-2.5 rounded-xl text-[9px] sm:text-[10px] uppercase tracking-wider active:scale-95 transition-all shadow-md mt-1">
+                            <i class="fas fa-calendar-check mr-1"></i> Simpan Hari Libur
+                        </button>
+                    </div>
+                </div>
+
+                <!-- DAFTAR HARI LIBUR AKTIF -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-calendar-alt text-indigo-400"></i>
+                            Daftar Hari Libur Bersama
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Karyawan tidak akan didenda keterlambatan pada hari-hari ini</p>
+                    </div>
+                    <div class="overflow-x-auto w-full flex-1 no-scrollbar max-h-[180px]">
+                        <table class="w-full text-xs text-left min-w-[400px]">
+                            <thead>
+                                <tr class="border-b border-white/15" style="color: var(--text-secondary);">
+                                    <th class="py-2 font-extrabold uppercase text-[8px] sm:text-[9px] w-32">Tanggal</th>
+                                    <th class="py-2 font-extrabold uppercase text-[8px] sm:text-[9px]">Keterangan</th>
+                                    <th class="py-2 font-extrabold uppercase text-[8px] sm:text-[9px] text-center w-16">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-holiday-tbody" class="divide-y divide-white/5">
+                                <!-- Dynamic Holiday Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROW 4: REGISTRASI & KELOLA AKUN KARYAWAN -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- FORM DAFTAR AKUN BARU -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-user-plus text-sky-400"></i>
+                            Daftarkan Karyawan Baru
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Buat akun baru untuk login di Portal Karyawan</p>
+                    </div>
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label>
+                            <input type="text" id="reg-nama" placeholder="Contoh: Andi Karyawan" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Jabatan</label>
+                            <input type="text" id="reg-jabatan" placeholder="Contoh: Creative Designer" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Email Karyawan</label>
+                            <input type="email" id="reg-email" placeholder="Contoh: andi@lapanbelas.id" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Password</label>
+                            <input type="password" id="reg-password" placeholder="Minimal 6 karakter" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Gaji Pokok Bulanan (Rp)</label>
+                            <input type="number" id="reg-gaji" placeholder="Contoh: 3500000" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                        </div>
+                        <button onclick="daftarkanKaryawanBaru()" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold py-2.5 rounded-xl text-[9px] sm:text-[10px] uppercase tracking-wider active:scale-95 transition-all shadow-md mt-2">
+                            <i class="fas fa-user-plus mr-1"></i> Simpan Akun Karyawan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- DAFTAR AKUN AKTIF -->
+                <div class="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+                    <div>
+                        <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style="color: var(--text-primary);">
+                            <i class="fas fa-users-cog text-sky-400"></i>
+                            Akun Karyawan Terdaftar
+                        </h3>
+                        <p class="text-[9px] sm:text-[10px]" style="color: var(--text-secondary);">Daftar kredensial login aktif karyawan Lapanbelas.id</p>
+                    </div>
+                    <div class="overflow-x-auto w-full flex-1 no-scrollbar max-h-[280px]">
+                        <table class="w-full text-xs text-left min-w-[600px]">
+                            <thead>
+                                <tr class="border-b border-white/15" style="color: var(--text-secondary);">
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px]">Nama Karyawan</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px]">Jabatan</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px]">Email</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-right">Gaji Pokok</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px]">Password</th>
+                                    <th class="py-2.5 font-extrabold uppercase text-[8px] sm:text-[9px] text-center w-16">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-daftar-karyawan-tbody" class="divide-y divide-white/5">
+                                <!-- Dynamic Karyawan Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESET DATA ALL (CRITICAL OPTION FOR DEMO) -->
+            <div class="text-center pt-2">
+                <button onclick="resetSeluruhDatabaseAdmin()" class="bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/25 text-rose-400 text-[9px] sm:text-[10px] font-extrabold px-5 py-2.5 rounded-xl uppercase tracking-wider active:scale-95 transition-all">
+                    <i class="fas fa-database mr-1.5"></i> Reset Ulang Seluruh Data Absensi & Izin (Pabrikan)
+                </button>
+            </div>
+            
+        </main>
+
+        <!-- Custom Alert Modal (Identik & Premium) -->
+        <div id="custom-modal" class="absolute inset-0 z-50 hidden flex-col justify-center items-center px-5">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="tutupPesan()"></div>
+            <div class="glass-card rounded-3xl p-6 w-full max-w-sm relative z-10 text-center shadow-2xl transform scale-95 transition-all duration-300" id="modal-content">
+                <div id="modal-icon" class="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-2xl mb-4 shadow-lg">
+                    <i class="fas fa-check"></i>
+                </div>
+                <h3 id="modal-title" class="text-base font-extrabold text-white mb-2" style="color: var(--text-primary);">Title</h3>
+                <p id="modal-text" class="text-[11px] text-slate-400 mb-6 leading-relaxed">Message goes here</p>
+                
+                <button onclick="tutupPesan()" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold py-3.5 rounded-xl active:scale-[0.98] transition-transform text-xs uppercase tracking-wider">
+                    Tutup
+                </button>
+            </div>
+        </div>
+
+        <!-- Custom Edit Karyawan Modal (Premium Glassmorphism) -->
+        <div id="edit-modal" class="absolute inset-0 z-50 hidden flex-col justify-center items-center px-5">
+            <div class="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onclick="tutupEditModal()"></div>
+            <div class="glass-card rounded-3xl p-6 w-full max-w-sm relative z-10 shadow-2xl transform scale-95 transition-all duration-300" id="edit-modal-content">
+                <div class="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-lg">
+                        <i class="fas fa-user-edit"></i>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-sm font-extrabold text-white" style="color: var(--text-primary);">Edit Data Karyawan</h3>
+                        <p class="text-[9px] text-slate-400">Sunting kredensial & gaji pokok staff</p>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="edit-old-email">
+                
+                <div class="space-y-3.5 text-xs text-left">
+                    <div>
+                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label>
+                        <input type="text" id="edit-nama" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Jabatan</label>
+                        <input type="text" id="edit-jabatan" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Email Karyawan (Login ID)</label>
+                        <input type="email" id="edit-email" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-sans text-[11px]">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Password</label>
+                        <input type="text" id="edit-password" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-mono text-[11px]">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase mb-1">Gaji Pokok Bulanan (Rp)</label>
+                        <input type="number" id="edit-gaji" class="w-full bg-slate-800/80 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-sky-500 font-mono text-[11px]">
+                    </div>
+                    
+                    <div class="flex gap-2.5 pt-2">
+                        <button onclick="tutupEditModal()" class="w-1/2 bg-slate-800/60 border border-white/5 hover:bg-slate-700/60 text-slate-300 font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider active:scale-[0.98] transition-transform">
+                            Batal
+                        </button>
+                        <button onclick="simpanPerubahanKaryawan()" class="w-1/2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider active:scale-[0.98] transition-transform shadow-md shadow-sky-500/15">
+                            Simpan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- KONFIGURASI SUPABASE ---
+        const SUPABASE_URL = "https://whktmjintgayjwnjzjei.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indoa3RtamludGdheWp3bmp6amVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDI2MDYsImV4cCI6MjA5NTg3ODYwNn0.Fn_dBHm6stnSu3uFLsbLjAtY9qHuAL-mfTcciwYYXpE";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const GAJI_POKOK = 3000000;
+
+        // State Global Admin
+        let adminState = {
+            officeCoords: { lat: 4.47604, lon: 97.95755 },
+            officeRadius: 800,
+            riwayatBudi: [],
+            izinRequests: [],
+            karyawanList: [],
+            holidayList: []
+        };
+
+        let adminMap = null;
+        let adminCircle = null;
+        let adminOfficeMarker = null;
+
+        // --- RATING KARYAWAN BULANAN ---
+        function hitungRatingKaryawan(hadir, telat, totalHariKerja = 28) {
+            if (totalHariKerja < 28) {
+                return {
+                    nama: "Dalam Evaluasi",
+                    badgeClass: "bg-slate-500/10 border border-slate-500/20 text-slate-400",
+                    label: "⏳ Evaluasi"
+                };
+            }
+            if (telat >= 4 || hadir < 15) {
+                return {
+                    nama: "Karyawan Malas",
+                    badgeClass: "bg-rose-500/10 border border-rose-500/20 text-rose-400",
+                    label: "⚠️ Malas"
+                };
+            } else if (telat === 0 && hadir >= 20) {
+                return {
+                    nama: "Karyawan Terbaik",
+                    badgeClass: "bg-amber-500/10 border border-amber-500/20 text-amber-400",
+                    label: "🏆 Terbaik"
+                };
+            } else {
+                return {
+                    nama: "Karyawan Baik",
+                    badgeClass: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
+                    label: "⭐ Baik"
+                };
+            }
+        }
+
+        // --- DEKLARASI AWAL ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadSavedTheme();
+            await loadOfficeConfig();
+            await loadIzinRequests();
+            await loadRiwayatBudi();
+            await renderHariLibur();
+            initAdminMap();
+            await renderDaftarAkunKaryawan();
+            await renderKaryawanTable();
+            renderPendingIzinList();
+            updateStatWidgets();
+            
+            // Aktifkan realtime sync
+            aktifkanRealtimeAdmin();
+        });
+
+        // --- THEME SWITCHER ---
+        function loadSavedTheme() {
+            const saved = localStorage.getItem('absensi_theme');
+            const container = document.getElementById('admin-container');
+            const icon = document.getElementById('theme-toggle-icon');
+            
+            if (saved === 'light') {
+                container.classList.add('light-theme');
+                icon.className = 'fas fa-moon text-amber-500';
+            } else {
+                container.classList.remove('light-theme');
+                icon.className = 'fas fa-sun text-yellow-400';
+            }
+        }
+
+        function toggleTheme() {
+            const container = document.getElementById('admin-container');
+            const icon = document.getElementById('theme-toggle-icon');
+            
+            container.classList.toggle('light-theme');
+            const isLight = container.classList.contains('light-theme');
+            localStorage.setItem('absensi_theme', isLight ? 'light' : 'dark');
+            
+            if (isLight) {
+                icon.className = 'fas fa-moon text-amber-500';
+            } else {
+                icon.className = 'fas fa-sun text-yellow-400';
+            }
+        }
+
+        // --- GEOFENCE CONFIG LOADER ---
+        async function loadOfficeConfig() {
+            try {
+                const { data, error } = await supabaseClient.from('office_config').select('*').eq('id', 1).single();
+                if (error) throw error;
+                if (data) {
+                    adminState.officeCoords.lat = parseFloat(data.lat);
+                    adminState.officeCoords.lon = parseFloat(data.lon);
+                    adminState.officeRadius = parseInt(data.radius);
+                }
+            } catch (err) {
+                console.warn("Gagal memuat koordinat dari Supabase, menggunakan data lokal:", err);
+                const storedLat = localStorage.getItem('absensi_office_lat');
+                const storedLon = localStorage.getItem('absensi_office_lon');
+                const storedRadius = localStorage.getItem('absensi_office_radius');
+                if (storedLat && storedLon) {
+                    adminState.officeCoords.lat = parseFloat(storedLat);
+                    adminState.officeCoords.lon = parseFloat(storedLon);
+                }
+                if (storedRadius) {
+                    adminState.officeRadius = parseInt(storedRadius);
+                }
+            }
+
+            document.getElementById('geofence-lat').value = adminState.officeCoords.lat;
+            document.getElementById('geofence-lon').value = adminState.officeCoords.lon;
+            document.getElementById('geofence-radius').value = adminState.officeRadius;
+        }
+
+        // --- DATA BINDINGS LOADER ---
+        async function loadIzinRequests() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('izin_requests')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    adminState.izinRequests = data;
+                } else {
+                    adminState.izinRequests = [
+                        { id: 'REQ-1', nama: 'Budi Karyawan', jenis: 'Sakit', tgl: '02/06/2026', alasan: 'Sakit demam tinggi dan flu berat', status: 'PENDING' }
+                    ];
+                    await supabaseClient.from('izin_requests').insert(adminState.izinRequests);
+                }
+            } catch (err) {
+                console.error("Gagal memuat izin dari Supabase:", err);
+                const stored = localStorage.getItem('absensi_izin_requests');
+                if (stored) {
+                    adminState.izinRequests = JSON.parse(stored);
+                }
+            }
+        }
+
+        async function loadRiwayatBudi() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('absensi_riwayat')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                adminState.riwayatBudi = data || [];
+            } catch (err) {
+                console.error("Gagal memuat riwayat Budi dari Supabase:", err);
+                const stored = localStorage.getItem('absensi_lpb_riwayat');
+                if (stored) {
+                    adminState.riwayatBudi = JSON.parse(stored);
+                }
+            }
+        }
+
+        // --- ADMIN MAP INITIALIZATION ---
+        function initAdminMap() {
+            adminMap = L.map('admin-map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([adminState.officeCoords.lat, adminState.officeCoords.lon], 15);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(adminMap);
+
+            const officeIcon = L.divIcon({
+                html: `<div class="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-900 border-2 border-white shadow-lg text-white text-[9px] font-black"><i class="fas fa-building text-sky-400"></i></div>`,
+                className: 'custom-div-icon',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            adminOfficeMarker = L.marker([adminState.officeCoords.lat, adminState.officeCoords.lon], { icon: officeIcon }).addTo(adminMap);
+
+            adminCircle = L.circle([adminState.officeCoords.lat, adminState.officeCoords.lon], {
+                color: '#10b981',
+                fillColor: '#10b981',
+                fillOpacity: 0.1,
+                radius: adminState.officeRadius,
+                weight: 1.2,
+                dashArray: '3, 3'
+            }).addTo(adminMap);
+        }
+
+        // --- UPDATE GEOFENCE PROCESS ---
+        async function updateGeofenceAdmin() {
+            const lat = parseFloat(document.getElementById('geofence-lat').value);
+            const lon = parseFloat(document.getElementById('geofence-lon').value);
+            const radius = parseInt(document.getElementById('geofence-radius').value);
+
+            if (isNaN(lat) || isNaN(lon) || isNaN(radius)) {
+                tampilkanPesan("Input Gagal", "Silakan masukkan angka koordinat dan radius yang valid.", "warning");
+                return;
+            }
+
+            adminState.officeCoords.lat = lat;
+            adminState.officeCoords.lon = lon;
+            adminState.officeRadius = radius;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('office_config')
+                    .update({ lat, lon, radius })
+                    .eq('id', 1);
+                if (error) throw error;
+            } catch (err) {
+                console.error("Gagal menyimpan koordinat ke Supabase:", err);
+            }
+
+            // Save to LocalStorage
+            localStorage.setItem('absensi_office_lat', lat);
+            localStorage.setItem('absensi_office_lon', lon);
+            localStorage.setItem('absensi_office_radius', radius);
+
+            // Perbarui Peta Admin
+            if (adminOfficeMarker) adminOfficeMarker.setLatLng([lat, lon]);
+            if (adminCircle) {
+                adminCircle.setLatLng([lat, lon]);
+                adminCircle.setRadius(radius);
+            }
+            adminMap.setView([lat, lon], 15);
+
+            tampilkanPesan("Geofence Diperbarui", `Koordinat Kantor sukses disimpan.<br>Radius diatur sebesar **${radius} meter**.<br><br><span class="text-[10px] text-slate-500">Perubahan ini langsung memengaruhi jangkauan GPS di beranda Karyawan!</span>`, "success");
+        }
+
+        // --- PENGAJUAN IZIN LOGICS (APPROVAL) ---
+        function renderPendingIzinList() {
+            const container = document.getElementById('admin-izin-list');
+            container.innerHTML = '';
+
+            const pending = adminState.izinRequests.filter(r => r.status === 'PENDING');
+            document.getElementById('stat-admin-pending-izin').textContent = pending.length;
+
+            if (pending.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-xs">
+                        <i class="fas fa-calendar-check text-2xl mb-2 text-slate-600"></i>
+                        <p>Tidak ada pengajuan izin menunggu persetujuan.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            pending.forEach(req => {
+                const card = `
+                    <div class="bg-slate-800/30 p-4 rounded-xl border border-white/5 flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div class="min-w-0">
+                                <h4 class="text-xs font-extrabold text-white truncate" style="color: var(--text-primary);">${req.nama}</h4>
+                                <span class="text-[8px] uppercase tracking-wider bg-sky-500/10 border border-sky-500/20 text-sky-400 px-2 py-0.5 rounded font-bold inline-block mt-0.5">${req.jenis}</span>
+                            </div>
+                            <span class="text-[9px] text-slate-400 font-bold font-mono shrink-0">${req.tgl}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 italic bg-black/10 p-2 rounded">"${req.alasan}"</p>
+                        <div class="flex gap-2 justify-end mt-1">
+                            <button onclick="tolakIzin('${req.id}')" class="bg-rose-500/15 border border-rose-500/20 hover:bg-rose-500 hover:text-white text-rose-400 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider active:scale-95 transition-all">Tolak</button>
+                            <button onclick="setujuiIzin('${req.id}')" class="bg-emerald-500/15 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-400 font-bold px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider active:scale-95 transition-all shadow-md">Setujui</button>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        async function setujuiIzin(id) {
+            const hitReq = adminState.izinRequests.find(r => r.id === id);
+            if (!hitReq) return;
+
+            // Load riwayat absensi budi
+            await loadRiwayatBudi();
+
+            // Batasi izin budi maksimal 3x sebulan (berdasarkan karyawan pengaju)
+            const emailPengaju = hitReq.karyawan_email || 'budi@lapanbelas.id';
+            const jumlahIzinBudi = adminState.riwayatBudi.filter(a => a.karyawan_email === emailPengaju && a.masuk === 'IZIN').length;
+            if (jumlahIzinBudi >= 3) {
+                tampilkanPesan("Batas Terlampaui", `Gagal menyetujui! Karyawan <b>${hitReq.nama}</b> telah mencapai batas maksimal **3x izin / cuti** bulan ini.`, "error");
+                return;
+            }
+
+            // Tambahkan record Izin ke riwayat budi
+            const recordBaru = {
+                tgl: hitReq.tgl,
+                masuk: 'IZIN',
+                pulang: 'IZIN',
+                status: hitReq.jenis,
+                denda: 0,
+                lembur: 0,
+                tipe: 'success',
+                karyawan_email: emailPengaju
+            };
+
+            try {
+                const { error: insertErr } = await supabaseClient.from('absensi_riwayat').insert([recordBaru]);
+                if (insertErr) throw insertErr;
+
+                const { error: deleteErr } = await supabaseClient.from('izin_requests').delete().eq('id', id);
+                if (deleteErr) throw deleteErr;
+            } catch (err) {
+                console.error("Gagal menyetujui izin di Supabase:", err);
+            }
+
+            adminState.riwayatBudi.unshift(recordBaru);
+            localStorage.setItem('absensi_lpb_riwayat', JSON.stringify(adminState.riwayatBudi));
+
+            // Hapus request dari pending
+            adminState.izinRequests = adminState.izinRequests.filter(r => r.id !== id);
+            localStorage.setItem('absensi_izin_requests', JSON.stringify(adminState.izinRequests));
+
+            tampilkanPesan("Cuti Disetujui", `Pengajuan izin **${hitReq.jenis}** pada tanggal **${hitReq.tgl}** sukses disetujui.<br>Jatah cuti disesuaikan & riwayat absensi Budi diperbarui secara instan.`, "success");
+
+            // Refresh UI
+            renderPendingIzinList();
+            renderKaryawanTable();
+            updateStatWidgets();
+        }
+
+        async function tolakIzin(id) {
+            const hitReq = adminState.izinRequests.find(r => r.id === id);
+            if (!hitReq) return;
+
+            try {
+                const { error } = await supabaseClient.from('izin_requests').delete().eq('id', id);
+                if (error) throw error;
+            } catch (err) {
+                console.error("Gagal menolak izin di Supabase:", err);
+            }
+
+            // Hapus request dari pending
+            adminState.izinRequests = adminState.izinRequests.filter(r => r.id !== id);
+            localStorage.setItem('absensi_izin_requests', JSON.stringify(adminState.izinRequests));
+
+            tampilkanPesan("Izin Ditolak", `Pengajuan cuti **${hitReq.jenis}** pada tanggal **${hitReq.tgl}** telah ditolak oleh HRD.`, "success");
+
+            renderPendingIzinList();
+            renderKaryawanTable();
+            updateStatWidgets();
+        }
+
+        // --- DAFTAR KARYAWAN MONITORING TABLE ---
+        async function loadDaftarKaryawan() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('karyawan')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                if (error) throw error;
+                adminState.karyawanList = data || [];
+            } catch (err) {
+                console.error("Gagal memuat daftar karyawan:", err);
+                adminState.karyawanList = [
+                    { email: 'budi@lapanbelas.id', password: 'password123', nama: 'Budi Karyawan', jabatan: 'Staff Operasional' }
+                ];
+            }
+        }
+
+        async function renderDaftarAkunKaryawan() {
+            const tbody = document.getElementById('table-daftar-karyawan-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            await loadDaftarKaryawan();
+
+            adminState.karyawanList.forEach((k, idx) => {
+                const lpId = `LPB-${10029 + idx}`;
+                const gajiFormatted = k.gaji_pokok ? `Rp ${parseFloat(k.gaji_pokok).toLocaleString('id-ID')}` : 'Rp 3.000.000';
+                const row = `
+                    <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+                        <td class="py-2.5 font-bold text-slate-100">${k.nama}</td>
+                        <td class="py-2.5 text-slate-300">${k.jabatan}</td>
+                        <td class="py-2.5 font-mono text-slate-400">${k.email}</td>
+                        <td class="py-2.5 text-right font-mono text-emerald-400 font-semibold">${gajiFormatted}</td>
+                        <td class="py-2.5 font-mono text-slate-400">${k.password}</td>
+                        <td class="py-2.5 text-center">
+                            <div class="flex justify-center gap-1.5">
+                                <button onclick="bukaModalEditKaryawan('${k.email}')" class="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 p-1.5 rounded-lg text-[9px] font-extrabold transition-colors" title="Edit Data Karyawan">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="hapusKaryawanSupabase('${k.email}')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-1.5 rounded-lg text-[9px] font-extrabold transition-colors" title="Hapus Karyawan">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        // --- MANAJEMEN EDIT DATA KARYAWAN ---
+        function bukaModalEditKaryawan(email) {
+            const k = adminState.karyawanList.find(item => item.email === email);
+            if (!k) return;
+
+            document.getElementById('edit-old-email').value = k.email;
+            document.getElementById('edit-nama').value = k.nama;
+            document.getElementById('edit-jabatan').value = k.jabatan;
+            document.getElementById('edit-email').value = k.email;
+            document.getElementById('edit-password').value = k.password;
+            document.getElementById('edit-gaji').value = k.gaji_pokok || 3000000;
+
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 50);
+        }
+
+        function tutupEditModal() {
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function simpanPerubahanKaryawan() {
+            try {
+                const oldEmail = document.getElementById('edit-old-email').value;
+                const nama = String(document.getElementById('edit-nama').value || '').trim();
+                const jabatan = String(document.getElementById('edit-jabatan').value || '').trim();
+                const email = String(document.getElementById('edit-email').value || '').trim();
+                const password = String(document.getElementById('edit-password').value || '').trim();
+                const gajiRaw = String(document.getElementById('edit-gaji').value || '').trim();
+                const gaji_pokok = gajiRaw ? parseFloat(gajiRaw) : 3000000;
+
+                if (!nama || !jabatan || !email || !password) {
+                    tampilkanPesan("Lengkapi Form", "Semua bidang data karyawan harus diisi.", "warning");
+                    return;
+                }
+
+                if (password.length < 6) {
+                    tampilkanPesan("Password Pendek", "Kata sandi minimal harus terdiri dari 6 karakter.", "warning");
+                    return;
+                }
+
+                // 1. Update data karyawan (hanya ubah email jika email benar-benar diedit)
+                const updatePayload = { nama, jabatan, password, gaji_pokok };
+                if (email !== oldEmail) {
+                    updatePayload.email = email;
+                }
+
+                const { error } = await supabaseClient
+                    .from('karyawan')
+                    .update(updatePayload)
+                    .eq('email', oldEmail);
+                
+                if (error) {
+                    alert("Error Supabase: " + error.message);
+                    throw error;
+                }
+
+                // 2. Sync data relasi jika email berubah
+                if (email !== oldEmail) {
+                    await supabaseClient.from('absensi_riwayat').update({ karyawan_email: email }).eq('karyawan_email', oldEmail);
+                    await supabaseClient.from('izin_requests').update({ karyawan_email: email }).eq('karyawan_email', oldEmail);
+                    
+                    // Jika user yang diedit sedang login di Portal Karyawan pada browser yang sama, sync sesinya
+                    const storedSession = localStorage.getItem('absensi_logged_in_user');
+                    if (storedSession) {
+                        const logged = JSON.parse(storedSession);
+                        if (logged.email === oldEmail) {
+                            localStorage.setItem('absensi_logged_in_user', JSON.stringify({
+                                email, nama, jabatan, gaji_pokok
+                            }));
+                        }
+                    }
+                }
+
+                tampilkanPesan("Data Diperbarui!", `Karyawan <b>${nama}</b> berhasil diperbarui secara permanen.`, "success");
+                tutupEditModal();
+
+                await renderDaftarAkunKaryawan();
+                await renderKaryawanTable();
+                await updateStatWidgets();
+            } catch (err) {
+                console.error("Gagal mengubah data karyawan:", err);
+                const errMsg = err ? (err.message || JSON.stringify(err)) : "Koneksi terputus";
+                alert("Kesalahan Sistem: " + errMsg);
+                tampilkanPesan("Gagal Memperbarui", `Masalah database: ${errMsg}`, "error");
+            }
+        }
+
+        async function daftarkanKaryawanBaru() {
+            const nama = document.getElementById('reg-nama').value.trim();
+            const jabatan = document.getElementById('reg-jabatan').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const gajiRaw = document.getElementById('reg-gaji').value.trim();
+            const gaji_pokok = gajiRaw ? parseFloat(gajiRaw) : 3000000;
+
+            if (!nama || !jabatan || !email || !password) {
+                tampilkanPesan("Lengkapi Form", "Silakan isi semua bidang pendaftaran karyawan baru.", "warning");
+                return;
+            }
+
+            if (password.length < 6) {
+                tampilkanPesan("Password Pendek", "Kata sandi minimal harus terdiri dari 6 karakter.", "warning");
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('karyawan').insert([
+                    { email, password, nama, jabatan, gaji_pokok }
+                ]);
+                if (error) throw error;
+
+                tampilkanPesan("Akun Dibuat!", `Karyawan <b>${nama}</b> sukses didaftarkan.<br><br>Mereka kini dapat masuk ke Portal Karyawan menggunakan email ini.`, "success");
+
+                document.getElementById('reg-nama').value = '';
+                document.getElementById('reg-jabatan').value = '';
+                document.getElementById('reg-email').value = '';
+                document.getElementById('reg-password').value = '';
+                document.getElementById('reg-gaji').value = '';
+
+                await renderDaftarAkunKaryawan();
+                await renderKaryawanTable();
+                await updateStatWidgets();
+            } catch (err) {
+                console.error("Gagal mendaftarkan karyawan:", err);
+                tampilkanPesan("Pendaftaran Gagal", `Email mungkin sudah digunakan atau terjadi gangguan: ${err.message}`, "error");
+            }
+        }
+
+        async function hapusKaryawanSupabase(email) {
+            if (email === 'budi@lapanbelas.id') {
+                tampilkanPesan("Gagal Menghapus", "Akun default Budi Karyawan tidak boleh dihapus demi kelancaran demo.", "error");
+                return;
+            }
+
+            if (!confirm(`Apakah Anda yakin ingin menghapus akun karyawan ${email}?`)) return;
+
+            try {
+                const { error: eErr } = await supabaseClient.from('karyawan').delete().eq('email', email);
+                if (eErr) throw eErr;
+
+                await supabaseClient.from('absensi_riwayat').delete().eq('karyawan_email', email);
+                await supabaseClient.from('izin_requests').delete().eq('karyawan_email', email);
+
+                tampilkanPesan("Akun Dihapus", `Akun karyawan ${email} dan seluruh data absensinya sukses dihapus.`, "success");
+                
+                await renderDaftarAkunKaryawan();
+                await renderKaryawanTable();
+                await updateStatWidgets();
+            } catch (err) {
+                console.error("Gagal menghapus karyawan:", err);
+            }
+        }
+
+        async function renderKaryawanTable() {
+            const tbody = document.getElementById('table-karyawan-tbody');
+            tbody.innerHTML = '';
+
+            await loadDaftarKaryawan();
+
+            try {
+                const { data: allRiwayat, error } = await supabaseClient
+                    .from('absensi_riwayat')
+                    .select('*');
+                if (error) throw error;
+
+                adminState.karyawanList.forEach((k, idx) => {
+                    const riwayatIni = allRiwayat ? allRiwayat.filter(r => r.karyawan_email === k.email) : [];
+                    
+                    let hadir = 0;
+                    let denda = 0;
+                    let lemburBiasa = 0;
+                    let izin = 0;
+                    let telat = 0;
+
+                    riwayatIni.forEach(a => {
+                        if (a.masuk && a.masuk !== 'IZIN') hadir++;
+                        if (a.masuk === 'IZIN') izin++;
+                        if (a.denda) denda += a.denda;
+                        if (a.lembur) lemburBiasa += (a.lembur * 25000);
+                        if (a.status && a.status.toLowerCase().includes('terlambat')) {
+                            telat++;
+                        }
+                    });
+
+                    const rating = hitungRatingKaryawan(hadir, telat, riwayatIni.length);
+                    const gajiPokokKaryawan = parseFloat(k.gaji_pokok) || 3000000;
+                    const sisaCuti = Math.max(0, 3 - izin);
+                    const bonusKonversiCuti = sisaCuti * 100000;
+                    const totalLembur = lemburBiasa + bonusKonversiCuti;
+                    const thp = gajiPokokKaryawan + totalLembur - denda;
+
+                    const lpId = `LPB-${10029 + idx}`;
+
+                    const row = `
+                        <tr class="bg-sky-500/5 font-bold hover:bg-white/5 transition-colors border-b border-white/5">
+                            <td class="py-3">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-user-circle text-sky-400 text-sm"></i>
+                                    <div>
+                                        <span class="block text-slate-100" style="color: var(--text-primary);">${k.nama}</span>
+                                        <span class="text-[9px] text-slate-500 font-mono">${lpId} | ${k.email}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-3 text-center text-slate-200" style="color: var(--text-primary); font-weight: 700;">${hadir} Hari</td>
+                            <td class="py-3 text-center">
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded ${sisaCuti === 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-sky-500/10 text-sky-400'}">${sisaCuti} Hari</span>
+                            </td>
+                            <td class="py-3 text-center">
+                                <span class="text-[9px] font-bold px-2.5 py-1 rounded-full ${rating.badgeClass}">${rating.label}</span>
+                            </td>
+                            <td class="py-3 text-right text-rose-400 font-mono font-semibold">Rp ${denda.toLocaleString('id-ID')}</td>
+                            <td class="py-3 text-right text-emerald-400 font-mono font-semibold">Rp ${totalLembur.toLocaleString('id-ID')}</td>
+                            <td class="py-3 text-right text-sky-400 font-extrabold font-mono text-[13px]">Rp ${thp.toLocaleString('id-ID')}</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            } catch (err) {
+                console.error("Gagal merender tabel karyawan:", err);
+            }
+        }
+
+        // --- STATS WIDGETS UPDATER ---
+        async function updateStatWidgets() {
+            try {
+                const { data: allRiwayat, error } = await supabaseClient
+                    .from('absensi_riwayat')
+                    .select('*');
+                if (error) throw error;
+
+                let totalDendaReal = 0;
+                let totalHadirReal = 0;
+                let totalTelatReal = 0;
+
+                if (allRiwayat) {
+                    allRiwayat.forEach(a => {
+                        if (a.masuk && a.masuk !== 'IZIN') totalHadirReal++;
+                        if (a.masuk !== 'IZIN' && a.tipe !== 'success') {
+                            totalTelatReal++;
+                        }
+                        if (a.denda) totalDendaReal += a.denda;
+                    });
+                }
+
+                // Set widgets (dummy + real)
+                document.getElementById('stat-admin-hadir').textContent = 12 + totalHadirReal; 
+                document.getElementById('stat-admin-telat').textContent = 2 + totalTelatReal; 
+                document.getElementById('stat-admin-denda').textContent = `Rp ${(65000 + totalDendaReal).toLocaleString('id-ID')}`;
+                
+                // Update pending count in badge
+                const { count, error: cErr } = await supabaseClient
+                    .from('izin_requests')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'PENDING');
+                if (!cErr) {
+                    document.getElementById('stat-admin-pending-izin').textContent = count;
+                }
+            } catch (err) {
+                console.error("Gagal memperbarui widget stats:", err);
+            }
+        }
+
+        // --- SIMULATED AUTO EMAIL MASS SENDER ---
+        function simulasikanKirimEmailMassal() {
+            tampilkanPesan("Mengirim Slip Massal", "Menginisialisasi modul pengiriman SMTP...<br>Mengompilasi Slip Gaji Karyawan (4 Karyawan)...<br>Sedang mengirim berkas PDF ke email masing-masing...", "success");
+            
+            setTimeout(() => {
+                tampilkanPesan("Sukses Kirim Massal!", "Slip Gaji PDF massal bulan Juni 2026 sukses dikirimkan otomatis ke email seluruh karyawan Lapanbelas.id secara aman!<br><br><span class='text-[10px] text-slate-500'>Auto-scheduler SMTP berjalan di server Node.js pertanggal 1.</span>", "success");
+            }, 2500);
+        }
+
+        // --- MANAJEMEN HARI LIBUR BERSAMA ---
+        async function loadHariLibur() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('hari_libur')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                adminState.holidayList = data || [];
+            } catch (err) {
+                console.error("Gagal memuat hari libur:", err);
+                adminState.holidayList = [];
+            }
+        }
+
+        async function renderHariLibur() {
+            const tbody = document.getElementById('table-holiday-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            await loadHariLibur();
+
+            if (adminState.holidayList.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="py-4 text-center text-slate-500 text-xs">
+                            Tidak ada hari libur bersama terdaftar.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            adminState.holidayList.forEach(h => {
+                const row = `
+                    <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+                        <td class="py-2.5 font-bold font-mono text-slate-100">${h.tanggal}</td>
+                        <td class="py-2.5 text-slate-300">${h.keterangan}</td>
+                        <td class="py-2.5 text-center">
+                            <button onclick="hapusHariLibur('${h.id}')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-1.5 rounded-lg text-[9px] font-extrabold transition-colors">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+
+        async function tambahHariLibur() {
+            const rawDate = document.getElementById('holiday-date').value;
+            const desc = document.getElementById('holiday-desc').value.trim();
+
+            if (!rawDate || !desc) {
+                tampilkanPesan("Lengkapi Form", "Silakan pilih tanggal dan isi keterangan hari libur bersama.", "warning");
+                return;
+            }
+
+            const parts = rawDate.split('-');
+            const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`; // "DD/MM/YYYY"
+
+            try {
+                const { error } = await supabaseClient.from('hari_libur').insert([
+                    { tanggal: formattedDate, keterangan: desc }
+                ]);
+                if (error) throw error;
+
+                tampilkanPesan("Sukses Simpan", `Hari libur **${desc}** pada **${formattedDate}** berhasil disimpan secara global.`, "success");
+                document.getElementById('holiday-date').value = '';
+                document.getElementById('holiday-desc').value = '';
+                await renderHariLibur();
+            } catch (err) {
+                console.error("Gagal menambahkan hari libur:", err);
+                tampilkanPesan("Gagal Menyimpan", "Hari libur mungkin sudah terdaftar pada tanggal tersebut atau gangguan Supabase.", "error");
+            }
+        }
+
+        async function hapusHariLibur(id) {
+            if (!confirm("Apakah Anda yakin ingin menghapus hari libur bersama ini?")) return;
+
+            try {
+                const { error } = await supabaseClient.from('hari_libur').delete().eq('id', id);
+                if (error) throw error;
+
+                tampilkanPesan("Hari Libur Dihapus", "Hari libur bersama sukses dihapus.", "success");
+                await renderHariLibur();
+            } catch (err) {
+                console.error("Gagal menghapus hari libur:", err);
+                tampilkanPesan("Gagal Menghapus", "Terjadi gangguan sistem.", "error");
+            }
+        }
+
+        // --- RESET DATA MASTER ---
+        async function resetSeluruhDatabaseAdmin() {
+            if (confirm("Kritis! Apakah Anda yakin ingin membersihkan ulang seluruh database riwayat absensi, geofence, dan pengajuan izin karyawan kembali ke awal pabrik?")) {
+                try {
+                    // Delete all attendance records
+                    await supabaseClient.from('absensi_riwayat').delete().neq('tgl', 'dummy_value');
+                    // Delete all leave requests
+                    await supabaseClient.from('izin_requests').delete().neq('id', 'dummy_value');
+                    // Delete all holidays
+                    await supabaseClient.from('hari_libur').delete().neq('keterangan', 'dummy_value');
+                    // Delete and re-seed karyawan
+                    await supabaseClient.from('karyawan').delete().neq('email', 'dummy_value');
+                    await supabaseClient.from('karyawan').insert([
+                        { email: 'budi@lapanbelas.id', password: 'password123', nama: 'Budi Karyawan', jabatan: 'Staff Operasional', gaji_pokok: 3500000 }
+                    ]);
+                    // Reset office geofence config
+                    await supabaseClient.from('office_config').update({
+                        lat: 4.47604,
+                        lon: 97.95755,
+                        radius: 800
+                    }).eq('id', 1);
+                } catch (err) {
+                    console.error("Gagal melakukan master reset di Supabase:", err);
+                }
+
+                localStorage.removeItem('absensi_lpb_riwayat');
+                localStorage.removeItem('absensi_izin_requests');
+                localStorage.removeItem('absensi_office_lat');
+                localStorage.removeItem('absensi_office_lon');
+                localStorage.removeItem('absensi_office_radius');
+                
+                tampilkanPesan("Master Reset Sukses", "Seluruh data absensi & log pengajuan izin telah sukses dibersihkan secara total.", "success");
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        }
+
+        // --- POPUP DIALOG MESSAGE ---
+        function tampilkanPesan(judul, teks, tipe) {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            const iconDiv = document.getElementById('modal-icon');
+            
+            document.getElementById('modal-title').textContent = judul;
+            document.getElementById('modal-text').innerHTML = teks;
+
+            iconDiv.className = 'w-14 h-14 rounded-full mx-auto flex items-center justify-center text-2xl mb-4 shadow-lg';
+            
+            if (tipe === 'success') {
+                iconDiv.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                iconDiv.innerHTML = '<i class="fas fa-check-circle"></i>';
+            } else if (tipe === 'warning') {
+                iconDiv.classList.add('bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/30');
+                iconDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            } else if (tipe === 'error') {
+                iconDiv.classList.add('bg-rose-500/20', 'text-rose-400', 'border', 'border-rose-500/30');
+                iconDiv.innerHTML = '<i class="fas fa-times-circle"></i>';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 50);
+        }
+
+        // --- REALTIME DATABASE SYNCHRONIZER (NO REFRESH!) ---
+        function aktifkanRealtimeAdmin() {
+            supabaseClient
+                .channel('admin-realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'karyawan' }, async () => {
+                    await renderDaftarAkunKaryawan();
+                    await renderKaryawanTable();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi_riwayat' }, async () => {
+                    await loadRiwayatBudi();
+                    await renderKaryawanTable();
+                    await updateStatWidgets();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_requests' }, async () => {
+                    await loadIzinRequests();
+                    renderPendingIzinList();
+                    await updateStatWidgets();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'hari_libur' }, async () => {
+                    await renderHariLibur();
+                })
+                .subscribe();
+        }
+
+        // Ganti tutupPesan agar transisi modal transparan
+        function tutupPesan() {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 200);
+        }
+    </script>
+</body>
+</html>
